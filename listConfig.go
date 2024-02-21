@@ -56,9 +56,16 @@ func handleStarredItem(m *model) tea.Cmd {
 	return nil
 }
 
-func handleProjectDetailItem(m *model) tea.Cmd {
+func handleProjectDetailItem(m *model, projectID int) tea.Cmd {
 	detailItems := []list.Item{
-		item{title: "Pipelines", desc: "List of pipelines", itemType: "pipeline", handler: handlePipelines},
+		item{
+			title:    "Pipelines",
+			desc:     "List of pipelines",
+			itemType: "pipeline",
+			handler: func(m *model) tea.Cmd {
+				return handlePipelines(m, projectID)
+			},
+		},
 		item{title: "Branches", desc: "List of branches", itemType: "branch", handler: handleBranches},
 		item{title: "MRs", desc: "List of merge requests", itemType: "mr", handler: handleMRs},
 	}
@@ -68,9 +75,15 @@ func handleProjectDetailItem(m *model) tea.Cmd {
 	return nil
 }
 
-func handlePipelines(m *model) tea.Cmd {
-	// placeholder
-	fmt.Println("Pipelines selected")
+func handlePipelines(m *model, projectID int) tea.Cmd {
+	pipelines, err := getPipelines(projectID)
+	if err != nil {
+		fmt.Println("Error fetching pipelines:", err)
+		return nil
+	}
+
+	pipelinesList := configureList(pipelines, "Pipelines")
+	m.pushList(pipelinesList)
 	return nil
 }
 
@@ -90,6 +103,7 @@ type item struct {
 	title, desc string
 	itemType    string
 	handler     func(*model) tea.Cmd
+	projectID   int
 }
 
 func configureList(items []list.Item, title string) list.Model {

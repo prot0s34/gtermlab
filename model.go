@@ -6,8 +6,9 @@ import (
 )
 
 type model struct {
-	listStack      []list.Model
-	lastWindowSize tea.WindowSizeMsg
+	listStack         []list.Model
+	lastWindowSize    tea.WindowSizeMsg
+	SelectedProjectID int
 }
 
 func (m *model) pushList(l list.Model) {
@@ -42,6 +43,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			currentList := m.currentList()
 			if selectedItem, ok := currentList.SelectedItem().(item); ok && selectedItem.handler != nil {
+				m.SelectedProjectID = selectedItem.projectID
 				return m, selectedItem.handler(m)
 			}
 			return m, nil
