@@ -120,7 +120,8 @@ func configureRootList() list.Model {
 		item{title: "Search", desc: "Filter by name", itemType: "root", handler: nil},
 	}
 
-	return configureList(items, "Put gitlab instance here")
+	rootTitle := fmt.Sprintf("󰮠 %s", gitlabInstanceName)
+	return configureList(items, rootTitle)
 }
 
 func (i item) Title() string       { return i.title }
