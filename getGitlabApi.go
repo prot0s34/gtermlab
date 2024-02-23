@@ -59,7 +59,7 @@ func getPipelines(projectID int) ([]list.Item, error) {
 	return items, nil
 }
 
-func getMR(projectID int) ([]list.Item, error) {
+func getMRs(projectID int) ([]list.Item, error) {
 	if gitClient == nil {
 		return nil, fmt.Errorf("GitLab client is not initialized")
 	}

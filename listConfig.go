@@ -52,7 +52,9 @@ func handleStarredItem(m *model) tea.Cmd {
 	}
 
 	detailList := configureList(projects, "Starred Projects")
-	m.pushList(detailList)
+	detailView := ListView{list: detailList}
+	m.pushView(detailView)
+
 	return nil
 }
 
@@ -71,14 +73,21 @@ func handleProjectDetailItem(m *model, projectID int) tea.Cmd {
 			desc:     "List of merge requests",
 			itemType: "mr",
 			handler: func(m *model) tea.Cmd {
-				return handleMR(m, projectID)
+				return handleMRs(m, projectID)
 			},
 		},
-		item{title: "Branches", desc: "List of branches", itemType: "branch", handler: handleBranches},
+		item{
+			title:    "Branches",
+			desc:     "List of branches",
+			itemType: "branch",
+			handler:  handleBranches,
+		},
 	}
 
 	detailsList := configureList(detailItems, "Project Details")
-	m.pushList(detailsList)
+	detailsView := ListView{list: detailsList}
+	m.pushView(detailsView)
+
 	return nil
 }
 
@@ -90,19 +99,23 @@ func handlePipelines(m *model, projectID int) tea.Cmd {
 	}
 
 	pipelinesList := configureList(pipelines, "Pipelines")
-	m.pushList(pipelinesList)
+	pipelinesView := ListView{list: pipelinesList}
+	m.pushView(pipelinesView)
+
 	return nil
 }
 
-func handleMR(m *model, projectID int) tea.Cmd {
-	mrs, err := getMR(projectID)
+func handleMRs(m *model, projectID int) tea.Cmd {
+	mrs, err := getMRs(projectID)
 	if err != nil {
 		fmt.Println("Error fetching MRs:", err)
 		return nil
 	}
 
 	mrsList := configureList(mrs, "Merge Requests")
-	m.pushList(mrsList)
+	mrsView := ListView{list: mrsList}
+	m.pushView(mrsView)
+
 	return nil
 }
 

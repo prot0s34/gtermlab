@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -15,8 +14,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	mainList := configureRootList()
-	m := model{listStack: []list.Model{mainList}}
+	rootList := configureRootList()
+	rootView := ListView{list: rootList}
+
+	m := model{views: []View{rootView}}
 	p := tea.NewProgram(&m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Println("Error running program:", err)

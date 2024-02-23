@@ -5,29 +5,54 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+type View interface {
+	Update(msg tea.Msg) (View, tea.Cmd)
+	View() string
+}
+
+type ListView struct {
+	list list.Model
+}
+
 type model struct {
-	listStack         []list.Model
+	views             []View
 	lastWindowSize    tea.WindowSizeMsg
 	SelectedProjectID int
 }
 
-func (m *model) pushList(l list.Model) {
-	if m.lastWindowSize != (tea.WindowSizeMsg{}) {
-		horizontalPadding := 4
-		verticalPadding := 4
-		l.SetSize(m.lastWindowSize.Width-horizontalPadding, m.lastWindowSize.Height-verticalPadding)
-	}
-
-	m.listStack = append(m.listStack, l)
-}
-func (m *model) popList() {
-	if len(m.listStack) > 1 {
-		m.listStack = m.listStack[:len(m.listStack)-1]
-	}
+func (l ListView) Update(msg tea.Msg) (View, tea.Cmd) {
+	var cmd tea.Cmd
+	l.list, cmd = l.list.Update(msg)
+	return l, cmd
 }
 
-func (m *model) currentList() *list.Model {
-	return &m.listStack[len(m.listStack)-1]
+func (l ListView) View() string {
+	return docStyle.Render(l.list.View())
+}
+func (m *model) pushView(v View) {
+	if listView, ok := v.(ListView); ok {
+		horizontalPadding, verticalPadding := 4, 4
+		width := m.lastWindowSize.Width - horizontalPadding*2
+		height := m.lastWindowSize.Height - verticalPadding*2
+		listView.list.SetSize(width, height)
+
+		v = listView
+	}
+
+	m.views = append(m.views, v)
+}
+
+func (m *model) popView() {
+	if len(m.views) > 1 {
+		m.views = m.views[:len(m.views)-1]
+	}
+}
+
+func (m *model) currentView() View {
+	if len(m.views) > 0 {
+		return m.views[len(m.views)-1]
+	}
+	return nil
 }
 
 func (m model) Init() tea.Cmd {
@@ -38,33 +63,45 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c":
-			return m, tea.Quit
 		case "enter":
-			currentList := m.currentList()
-			if selectedItem, ok := currentList.SelectedItem().(item); ok && selectedItem.handler != nil {
-				m.SelectedProjectID = selectedItem.projectID
-				return m, selectedItem.handler(m)
+			if currentView, ok := m.currentView().(ListView); ok {
+				selectedItem, ok := currentView.list.SelectedItem().(item)
+				if ok && selectedItem.handler != nil {
+					cmd := selectedItem.handler(m)
+					return m, cmd
+				}
 			}
-			return m, nil
+
 		case "esc":
-			m.popList()
+			m.popView()
 			return m, nil
 		}
 	case tea.WindowSizeMsg:
 		m.lastWindowSize = msg
-		currentList := m.currentList()
-		horizontalPadding, verticalPadding := 4, 4
-		currentList.SetSize(msg.Width-horizontalPadding, msg.Height-verticalPadding)
+
+		if currentView, ok := m.currentView().(ListView); ok {
+			horizontalPadding, verticalPadding := 4, 4
+			width := msg.Width - horizontalPadding*2
+			height := msg.Height - verticalPadding*2
+			currentView.list.SetSize(width, height)
+
+			m.views[len(m.views)-1] = currentView
+		}
 	}
 
-	currentList := m.currentList()
-	var cmd tea.Cmd
-	*currentList, cmd = currentList.Update(msg)
-	return m, cmd
+	if currentView := m.currentView(); currentView != nil {
+		updatedView, cmd := currentView.Update(msg)
+		m.views[len(m.views)-1] = updatedView
+		return m, cmd
+	}
+
+	return m, nil
 }
 
 func (m model) View() string {
-	currentList := m.currentList()
-	return docStyle.Render(currentList.View())
+	currentView := m.currentView()
+	if currentView != nil {
+		return currentView.View()
+	}
+	return ""
 }
