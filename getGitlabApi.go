@@ -58,3 +58,26 @@ func getPipelines(projectID int) ([]list.Item, error) {
 
 	return items, nil
 }
+
+func getMR(projectID int) ([]list.Item, error) {
+	if gitClient == nil {
+		return nil, fmt.Errorf("GitLab client is not initialized")
+	}
+
+	mergeRequests, _, err := gitClient.MergeRequests.ListProjectMergeRequests(projectID, &gitlab.ListProjectMergeRequestsOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get merge requests for project %d: %v", projectID, err)
+	}
+
+	items := make([]list.Item, 0, len(mergeRequests))
+	for _, mergeRequest := range mergeRequests {
+		items = append(items, item{
+			title:    mergeRequest.Title,
+			desc:     fmt.Sprintf("State: %s", mergeRequest.State),
+			itemType: "mergeRequest",
+			handler:  nil,
+		})
+	}
+
+	return items, nil
+}

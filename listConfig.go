@@ -66,8 +66,15 @@ func handleProjectDetailItem(m *model, projectID int) tea.Cmd {
 				return handlePipelines(m, projectID)
 			},
 		},
+		item{
+			title:    "MRs",
+			desc:     "List of merge requests",
+			itemType: "mr",
+			handler: func(m *model) tea.Cmd {
+				return handleMR(m, projectID)
+			},
+		},
 		item{title: "Branches", desc: "List of branches", itemType: "branch", handler: handleBranches},
-		item{title: "MRs", desc: "List of merge requests", itemType: "mr", handler: handleMRs},
 	}
 
 	detailsList := configureList(detailItems, "Project Details")
@@ -87,15 +94,21 @@ func handlePipelines(m *model, projectID int) tea.Cmd {
 	return nil
 }
 
-func handleBranches(m *model) tea.Cmd {
-	// placeholder
-	fmt.Println("Branches selected")
+func handleMR(m *model, projectID int) tea.Cmd {
+	mrs, err := getMR(projectID)
+	if err != nil {
+		fmt.Println("Error fetching MRs:", err)
+		return nil
+	}
+
+	mrsList := configureList(mrs, "Merge Requests")
+	m.pushList(mrsList)
 	return nil
 }
 
-func handleMRs(m *model) tea.Cmd {
+func handleBranches(m *model) tea.Cmd {
 	// placeholder
-	fmt.Println("MRs selected")
+	fmt.Println("Branches selected")
 	return nil
 }
 
