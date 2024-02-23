@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -10,25 +9,12 @@ type View interface {
 	View() string
 }
 
-type ListView struct {
-	list list.Model
-}
-
 type model struct {
 	views             []View
 	lastWindowSize    tea.WindowSizeMsg
 	SelectedProjectID int
 }
 
-func (l ListView) Update(msg tea.Msg) (View, tea.Cmd) {
-	var cmd tea.Cmd
-	l.list, cmd = l.list.Update(msg)
-	return l, cmd
-}
-
-func (l ListView) View() string {
-	return docStyle.Render(l.list.View())
-}
 func (m *model) pushView(v View) {
 	if listView, ok := v.(ListView); ok {
 		horizontalPadding, verticalPadding := 4, 4
