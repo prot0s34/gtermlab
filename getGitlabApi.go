@@ -8,7 +8,7 @@ import (
 	"github.com/xanzy/go-gitlab"
 )
 
-func getStarredProjects() ([]list.Item, error) {
+func apiGetStarredProjects() ([]list.Item, error) {
 	if gitClient == nil {
 		return nil, fmt.Errorf("GitLab client is not initialized")
 	}
@@ -48,18 +48,21 @@ func getPipelines(projectID int) ([]list.Item, error) {
 
 	items := make([]list.Item, 0, len(pipelines))
 	for _, pipeline := range pipelines {
+		pipelineID := pipeline.ID
 		items = append(items, item{
 			title:    fmt.Sprintf("Pipeline #%d", pipeline.ID),
 			desc:     fmt.Sprintf("Status: %s", pipeline.Status),
 			itemType: "pipeline",
-			handler:  nil,
+			handler: func(m *model) tea.Cmd {
+				return handlePipelineDetailItem(m, projectID, pipelineID)
+			},
 		})
 	}
 
 	return items, nil
 }
 
-func getMRs(projectID int) ([]list.Item, error) {
+func apiGetMRs(projectID int) ([]list.Item, error) {
 	if gitClient == nil {
 		return nil, fmt.Errorf("GitLab client is not initialized")
 	}

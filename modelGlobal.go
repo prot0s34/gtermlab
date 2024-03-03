@@ -16,13 +16,17 @@ type model struct {
 }
 
 func (m *model) pushView(v View) {
-	if listView, ok := v.(ListView); ok {
-		horizontalPadding, verticalPadding := 4, 4
-		width := m.lastWindowSize.Width - horizontalPadding*2
-		height := m.lastWindowSize.Height - verticalPadding*2
-		listView.list.SetSize(width, height)
+	horizontalPadding, verticalPadding := 4, 4
+	width := m.lastWindowSize.Width - horizontalPadding*2
+	height := m.lastWindowSize.Height - verticalPadding*2
 
-		v = listView
+	switch view := v.(type) {
+	case ListView:
+		view.list.SetSize(width, height)
+		v = view
+	case *Board:
+		view.SetSize(width, height)
+		v = view
 	}
 
 	m.views = append(m.views, v)

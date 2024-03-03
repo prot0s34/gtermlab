@@ -8,7 +8,7 @@ import (
 )
 
 func handleStarredItem(m *model) tea.Cmd {
-	projects, err := getStarredProjects()
+	projects, err := apiGetStarredProjects()
 	if err != nil {
 		fmt.Println("Error fetching starred projects:", err)
 		return nil
@@ -68,8 +68,15 @@ func handlePipelines(m *model, projectID int) tea.Cmd {
 	return nil
 }
 
+func handlePipelineDetailItem(m *model, projectID, pipelineID int) tea.Cmd {
+	board = NewBoard()
+	board.initLists()
+	m.pushView(board)
+	return nil
+}
+
 func handleMRs(m *model, projectID int) tea.Cmd {
-	mrs, err := getMRs(projectID)
+	mrs, err := apiGetMRs(projectID)
 	if err != nil {
 		fmt.Println("Error fetching MRs:", err)
 		return nil
