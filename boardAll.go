@@ -28,13 +28,17 @@ type Job struct {
 }
 
 var stages []Stage = []Stage{
-	{Name: "Stage 1", Status: 0},
-	{Name: "Stage 2", Status: 1},
+	{Name: "Stage 0", Status: 0},
+	{Name: "Stage 1", Status: 1},
+	{Name: "Stage 2", Status: 2},
+	{Name: "Stage 3", Status: 3},
+	{Name: "Stage 4", Status: 4},
+	{Name: "Stage 5", Status: 5},
 }
 
 var jobs []Job = []Job{
 	{Title: "Job 1", Description: "Description 1", Stage: 0},
-	{Title: "Job 2", Description: "Description 2", Stage: 0},
+	{Title: "Job 2", Description: "Description 2", Stage: 5},
 }
 
 func (c *column) setSize(width, height int) {
