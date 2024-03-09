@@ -10,6 +10,33 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+const margin = 4
+
+var board *Board
+
+const APPEND = -1
+
+type Stage struct {
+	Name   string
+	Status int
+}
+
+type Job struct {
+	Title       string
+	Description string
+	Stage       int
+}
+
+var stages []Stage = []Stage{
+	{Name: "Stage 1", Status: 0},
+	{Name: "Stage 2", Status: 1},
+}
+
+var jobs []Job = []Job{
+	{Title: "Job 1", Description: "Description 1", Stage: 0},
+	{Title: "Job 2", Description: "Description 2", Stage: 0},
+}
+
 func (c *column) setSize(width, height int) {
 	c.width = width / margin
 	c.height = height
@@ -24,11 +51,9 @@ func (b *Board) SetSize(width, height int) {
 	}
 }
 
-const APPEND = -1
-
 type column struct {
 	focus  bool
-	status status
+	stage  Stage
 	list   list.Model
 	height int
 	width  int
@@ -46,17 +71,20 @@ func (c *column) Focused() bool {
 	return c.focus
 }
 
-func newColumn(status status) column {
+func newColumn(stage Stage) column {
 	var focus bool
-	if status == todo {
+	if stage.Status == stages[0].Status {
 		focus = true
 	}
+
 	defaultList := list.New([]list.Item{}, list.NewDefaultDelegate(), 0, 0)
 	defaultList.SetShowHelp(false)
-	return column{focus: focus, status: status, list: defaultList}
+
+	defaultList.Title = stage.Name
+
+	return column{focus: focus, stage: stage, list: defaultList}
 }
 
-// Init does initial setup for the column.
 func (c column) Init() tea.Cmd {
 	return nil
 }
@@ -70,23 +98,8 @@ func (c column) Update(msg tea.Msg) (View, tea.Cmd) {
 		c.list.SetSize(msg.Width/margin, msg.Height/2)
 	case tea.KeyMsg:
 		switch {
-		case key.Matches(msg, keys.Edit):
-			if len(c.list.VisibleItems()) != 0 {
-				task := c.list.SelectedItem().(Task)
-				f := NewForm(task.title, task.description)
-				f.index = c.list.Index()
-				f.col = c
-				return f.Update(nil)
-			}
-		case key.Matches(msg, keys.New):
-			f := newDefaultForm()
-			f.index = APPEND
-			f.col = c
-			return f.Update(nil)
-		case key.Matches(msg, keys.Delete):
-			return c, c.DeleteCurrent()
 		case key.Matches(msg, keys.Enter):
-			return c, c.MoveToNext()
+			println("enter")
 		}
 	}
 	c.list, cmd = c.list.Update(msg)
@@ -95,23 +108,6 @@ func (c column) Update(msg tea.Msg) (View, tea.Cmd) {
 
 func (c column) View() string {
 	return c.getStyle().Render(c.list.View())
-}
-
-func (c *column) DeleteCurrent() tea.Cmd {
-	if len(c.list.VisibleItems()) > 0 {
-		c.list.RemoveItem(c.list.Index())
-	}
-
-	var cmd tea.Cmd
-	c.list, cmd = c.list.Update(nil)
-	return cmd
-}
-
-func (c *column) Set(i int, t Task) tea.Cmd {
-	if i != APPEND {
-		return c.list.SetItem(i, t)
-	}
-	return c.list.InsertItem(APPEND, t)
 }
 
 func (c *column) getStyle() lipgloss.Style {
@@ -134,46 +130,37 @@ type moveMsg struct {
 	Task
 }
 
-func (c *column) MoveToNext() tea.Cmd {
-	var task Task
-	var ok bool
-	// If nothing is selected, the SelectedItem will return Nil.
-	if task, ok = c.list.SelectedItem().(Task); !ok {
-		return nil
+func (b *Board) initColumns() {
+	b.cols = make([]column, len(stages))
+	for i, stage := range stages {
+		b.cols[i] = newColumn(stage)
 	}
-	// move item
-	c.list.RemoveItem(c.list.Index())
-	task.status = c.status.getNext()
-
-	// refresh list
-	var cmd tea.Cmd
-	c.list, cmd = c.list.Update(nil)
-
-	return tea.Sequence(cmd, func() tea.Msg { return moveMsg{task} })
 }
 
-// Provides the mock data to fill the pipeline stages board
+type JobListItem struct {
+	Job
+}
+
+func (j JobListItem) Title() string       { return j.Job.Title }
+func (j JobListItem) Description() string { return j.Job.Description }
+func (j JobListItem) FilterValue() string { return j.Job.Title }
+
+func NewJobListItem(job Job) JobListItem {
+	return JobListItem{Job: job}
+}
 
 func (b *Board) initLists() {
-	b.cols = []column{
-		newColumn(todo),
-		newColumn(inProgress),
-		newColumn(done),
+	b.initColumns()
+
+	for _, job := range jobs {
+		for i, col := range b.cols {
+			if col.stage.Status == job.Stage {
+				jobItem := NewJobListItem(job)
+				b.cols[i].list.InsertItem(len(b.cols[i].list.Items()), jobItem)
+				break
+			}
+		}
 	}
-	b.cols[todo].list.Title = "Lint"
-	b.cols[todo].list.SetItems([]list.Item{
-		Task{status: todo, title: "Go lint", description: "linting"},
-		Task{status: todo, title: "Sonarqube", description: "static analysis"},
-		Task{status: todo, title: "SAST", description: "security analysis"},
-	})
-	b.cols[inProgress].list.Title = "Build"
-	b.cols[inProgress].list.SetItems([]list.Item{
-		Task{status: inProgress, title: "Go build", description: "build the thing"},
-	})
-	b.cols[done].list.Title = "Deploy"
-	b.cols[done].list.SetItems([]list.Item{
-		Task{status: done, title: "Nexus", description: "deploy artifacts"},
-	})
 	b.loaded = true
 }
 
@@ -183,26 +170,6 @@ type Form struct {
 	description textarea.Model
 	col         column
 	index       int
-}
-
-func newDefaultForm() *Form {
-	return NewForm("task name", "")
-}
-
-func NewForm(title, description string) *Form {
-	form := Form{
-		help:        help.New(),
-		title:       textinput.New(),
-		description: textarea.New(),
-	}
-	form.title.Placeholder = title
-	form.description.Placeholder = description
-	form.title.Focus()
-	return &form
-}
-
-func (f Form) CreateTask() Task {
-	return Task{f.col.status, f.title.Value(), f.description.Value()}
 }
 
 func (f Form) Init() tea.Cmd {
@@ -248,48 +215,29 @@ func (f Form) View() string {
 		f.help.View(keys))
 }
 
-// ShortHelp returns keybindings to be shown in the mini help view. It's part
-// of the key.Map interface.
 func (k keyMap) ShortHelp() []key.Binding {
 	return []key.Binding{k.Help, k.Quit}
 }
 
-// FullHelp returns keybindings for the expanded help view. It's part of the
-// key.Map interface.
 func (k keyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Up, k.Down, k.Left, k.Right}, // first column
-		{k.Help, k.Quit},                // second column
+		{k.Up, k.Down, k.Left, k.Right},
+		{k.Help, k.Quit},
 	}
 }
 
 type keyMap struct {
-	New    key.Binding
-	Edit   key.Binding
-	Delete key.Binding
-	Up     key.Binding
-	Down   key.Binding
-	Right  key.Binding
-	Left   key.Binding
-	Enter  key.Binding
-	Help   key.Binding
-	Quit   key.Binding
-	Back   key.Binding
+	Up    key.Binding
+	Down  key.Binding
+	Right key.Binding
+	Left  key.Binding
+	Enter key.Binding
+	Help  key.Binding
+	Quit  key.Binding
+	Back  key.Binding
 }
 
 var keys = keyMap{
-	New: key.NewBinding(
-		key.WithKeys("n"),
-		key.WithHelp("n", "new"),
-	),
-	Edit: key.NewBinding(
-		key.WithKeys("e"),
-		key.WithHelp("e", "edit"),
-	),
-	Delete: key.NewBinding(
-		key.WithKeys("d"),
-		key.WithHelp("d", "delete"),
-	),
 	Up: key.NewBinding(
 		key.WithKeys("up", "k"),
 		key.WithHelp("↑/k", "move up"),
@@ -337,7 +285,13 @@ type Board struct {
 func NewBoard() *Board {
 	help := help.New()
 	help.ShowAll = true
-	return &Board{help: help, focused: todo}
+
+	initialFocus := status(stages[0].Status)
+
+	return &Board{
+		help:    help,
+		focused: initialFocus,
+	}
 }
 
 func (m *Board) Init() tea.Cmd {
@@ -357,10 +311,6 @@ func (b *Board) Update(msg tea.Msg) (View, tea.Cmd) {
 		}
 		b.loaded = true
 		return b, tea.Batch(cmds...)
-	case Form:
-		return b, b.cols[b.focused].Set(msg.index, msg.CreateTask())
-	case moveMsg:
-		return b, b.cols[b.focused.getNext()].Set(APPEND, msg.Task)
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, keys.Quit):
@@ -392,12 +342,13 @@ func (m *Board) View() string {
 	if !m.loaded {
 		return "loading..."
 	}
-	board := lipgloss.JoinHorizontal(
-		lipgloss.Left,
-		m.cols[todo].View(),
-		m.cols[inProgress].View(),
-		m.cols[done].View(),
-	)
+
+	var columnViews []string
+	for _, col := range m.cols {
+		columnViews = append(columnViews, col.View())
+	}
+
+	board := lipgloss.JoinHorizontal(lipgloss.Left, columnViews...)
 
 	return lipgloss.JoinVertical(lipgloss.Left, board, m.help.View(keys))
 }
@@ -408,19 +359,6 @@ type Task struct {
 	description string
 }
 
-func NewTask(status status, title, description string) Task {
-	return Task{status: status, title: title, description: description}
-}
-
-func (t *Task) Next() {
-	if t.status == done {
-		t.status = todo
-	} else {
-		t.status++
-	}
-}
-
-// implement the list.Item interface
 func (t Task) FilterValue() string {
 	return t.title
 }
@@ -436,25 +374,25 @@ func (t Task) Description() string {
 type status int
 
 func (s status) getNext() status {
-	if s == done {
-		return todo
+	for i, stage := range stages {
+		if stage.Status == int(s) {
+			if i == len(stages)-1 {
+				return status(stages[0].Status)
+			}
+			return status(stages[i+1].Status)
+		}
 	}
-	return s + 1
+	return s
 }
 
 func (s status) getPrev() status {
-	if s == todo {
-		return done
+	for i, stage := range stages {
+		if stage.Status == int(s) {
+			if i == 0 {
+				return status(stages[len(stages)-1].Status)
+			}
+			return status(stages[i-1].Status)
+		}
 	}
-	return s - 1
+	return s
 }
-
-const margin = 4
-
-var board *Board
-
-const (
-	todo status = iota
-	inProgress
-	done
-)
