@@ -14,8 +14,6 @@ const margin = 4
 
 var board *Board
 
-const APPEND = -1
-
 type Stage struct {
 	Name   string
 	Status int
